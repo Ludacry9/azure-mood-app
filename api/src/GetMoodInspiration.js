@@ -21,30 +21,30 @@ app.http('GetMoodInspiration', {
         }
 
         try {
-            // Rimuove eventuali slash finali o percorsi v1 duplicati
-            let cleanEndpoint = endpoint.replace(/\/$/, '');
-            if (!cleanEndpoint.endsWith('/v1/chat/completions')) {
-                cleanEndpoint = `${cleanEndpoint}/v1/chat/completions`;
-            }
+            // Struttura corretta dell'URL per la chiamata REST nativa ad Azure OpenAI
+            const cleanEndpoint = endpoint.replace(/\/$/, '');
+            const apiVersion = "2024-02-15-preview"; // Versione API standard stabile
+            const targetUrl = `${cleanEndpoint}/openai/deployments/${deploymentName}/chat/completions?api-version=${apiVersion}`;
 
-            const response = await fetch(cleanEndpoint, {
+            const response = await fetch(targetUrl, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${apiKey}`
+                    'api-key': apiKey // Header nativo richiesto da Azure OpenAI
                 },
                 body: JSON.stringify({
-                    model: deploymentName, // Alcuni endpoint serverless richiedono esplicitamente il nome del modello nel body
                     messages: [
-                        { role: "system", content: "Sei un assistente empatico. Rispondi in italiano. Se il mood dell'utente è negativo, scrivi una frase motivazionale calda e di supporto. Se è positivo o neutro, scrivi una breve poesia ispiratrice (massimo 4 versi). Rispondi SOLO con il testo richiesto, senza commenti o introduzioni." },
-                        { role: "user", content: `Il mio mood è: ${mood}` }
-                    ]
+                        { role: "system", content: "Sei un assistente empatico. Rispondi in italiano. Se il mood dell'utente è negativo, scrivi una frase motivazionale calda di supporto. Se è positivo o neutro, scrivi una breve poesia ispiratrice (massimo 4 versi). Rispondi SOLO con la frase o la poesia richiesta, senza commenti aggiuntivi." },
+                        { role: "user", content: `Il mio mood oggi è: ${mood}` }
+                    ],
+                    max_tokens: 150,
+                    temperature: 0.7
                 })
             });
 
             if (!response.ok) {
                 const errText = await response.text();
-                context.log(`Errore da Azure AI Foundry: ${response.status} - ${errText}`);
+                context.log(`Errore Azure OpenAI REST: ${response.status} - ${errText}`);
                 return { status: 500, jsonBody: { error: `Errore servizio AI (${response.status})` } };
             }
 
