@@ -12,19 +12,19 @@ app.http('GetMoodInspiration', {
 
         const endpoint = process.env.AZURE_OPENAI_ENDPOINT;
         const apiKey = process.env.AZURE_OPENAI_API_KEY;
+        const deploymentName = process.env.AZURE_OPENAI_DEPLOYMENT_NAME || "Phi-4-mini-instruct";
 
         if (!endpoint || !apiKey) {
             return { 
-                jsonBody: { text: `[Modalità Test] Ti senti: ${mood}. (Configura le chiavi su Azure!)` } 
+                jsonBody: { text: `[Test] Ti senti: ${mood}. Configura le chiavi su Azure!` } 
             };
         }
 
         try {
-            // I modelli Serverless in Azure Foundry usano le API standard di chat/completions
-            // Puliamo l'endpoint se inserito con la parte finale di OpenAI
-            let cleanEndpoint = endpoint.split('/v1')[0];
+            // Rimuove eventuali slash finali o percorsi v1 duplicati
+            let cleanEndpoint = endpoint.replace(/\/$/, '');
             if (!cleanEndpoint.endsWith('/v1/chat/completions')) {
-                cleanEndpoint = `${cleanEndpoint.replace(/\/$/, '')}/v1/chat/completions`;
+                cleanEndpoint = `${cleanEndpoint}/v1/chat/completions`;
             }
 
             const response = await fetch(cleanEndpoint, {
@@ -34,18 +34,17 @@ app.http('GetMoodInspiration', {
                     'Authorization': `Bearer ${apiKey}`
                 },
                 body: JSON.stringify({
+                    model: deploymentName, // Alcuni endpoint serverless richiedono esplicitamente il nome del modello nel body
                     messages: [
-                        { role: "system", content: "Sei un assistente empatico. L'utente ti dirà il suo mood. Se è negativo, rispondi con una frase motivazionale forte ma calorosa. Se è positivo o neutro, rispondi con una breve poesia ispiratrice (max 4 versi) in italiano. Rispondi SOLO con la frase o la poesia, senza altri commenti." },
-                        { role: "user", content: `Il mio mood oggi è: ${mood}` }
-                    ],
-                    max_tokens: 150,
-                    temperature: 0.7
+                        { role: "system", content: "Sei un assistente empatico. Rispondi in italiano. Se il mood dell'utente è negativo, scrivi una frase motivazionale calda e di supporto. Se è positivo o neutro, scrivi una breve poesia ispiratrice (massimo 4 versi). Rispondi SOLO con il testo richiesto, senza commenti o introduzioni." },
+                        { role: "user", content: `Il mio mood è: ${mood}` }
+                    ]
                 })
             });
 
             if (!response.ok) {
                 const errText = await response.text();
-                context.log(`Errore HTTP da Azure AI: ${response.status} - ${errText}`);
+                context.log(`Errore da Azure AI Foundry: ${response.status} - ${errText}`);
                 return { status: 500, jsonBody: { error: `Errore servizio AI (${response.status})` } };
             }
 
@@ -55,7 +54,7 @@ app.http('GetMoodInspiration', {
             return { jsonBody: { text: aiText } };
 
         } catch (error) {
-            context.log(`Errore critico: ${error.message}`);
+            context.log(`Errore critico backend: ${error.message}`);
             return { status: 500, jsonBody: { error: "Errore durante la generazione." } };
         }
     }
