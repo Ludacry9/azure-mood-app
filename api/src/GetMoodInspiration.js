@@ -15,7 +15,7 @@ app.http('GetMoodInspiration', {
         // 2. Recupera le credenziali AI dalle variabili d'ambiente di Azure
         const endpoint = process.env.AZURE_OPENAI_ENDPOINT;
         const apiKey = process.env.AZURE_OPENAI_API_KEY;
-        const deploymentName = process.env.AZURE_OPENAI_DEPLOYMENT_NAME || "gpt-4o-mini";
+        const deploymentName = "Phi-4-mini-instruct";
 
         // Se non configurate (es. in locale), restituisce un testo di fallback per non rompersi
         if (!endpoint || !apiKey) {
